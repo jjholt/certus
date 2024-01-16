@@ -1,0 +1,8 @@
+/target
+*.nco
+*.nrw
+*.n3d
+*.n6d
+*.rig
+*.bak
+*.cam
