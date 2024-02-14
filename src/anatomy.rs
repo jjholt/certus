@@ -1,4 +1,4 @@
-use std::{error::Error, fmt, path::{Path, PathBuf}, ffi};
+use std::{error::Error, fmt, ffi};
 use super::parse_csv::*;
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -93,19 +93,19 @@ impl <'a> LandmarkSetup <'a>{
             side,
         }
     }
-    pub fn create(&'a self, bone: Bone, position: &'a [Position]) -> Option<Landmark> {
+    pub fn create(&'a self, bone: Bone, position: &'a [Position]) -> Landmark {
         let position_names: String = position.iter().map(|p| p.filename().to_string()).collect();
         let filename = format!("{}/{}{}.csv", self.folder, bone.filename(), position_names);
-        let csv = Csv::new(&filename).ok()?;
+        let csv = Csv::new(&filename).ok().unwrap();
         let data = csv.content;
         let header = csv.header;
-        Some(Landmark {
+        Landmark {
             side: self.side,
             position,
             bone,
             data,
             header,
-        })
+        }
     }
     pub fn raw_csv(&self, name: &str) -> Result<Csv> {
         let name = format!("{}/{}", self.folder, name);
@@ -115,13 +115,10 @@ impl <'a> LandmarkSetup <'a>{
 }
 
 impl <'a> Landmark<'a> {
-    pub fn pin1(&self) -> Option<&Coords> {
-        self.data.pin1.as_ref()
+    pub fn pin1(&self) -> &Coords {
+        &self.data.pin1
     }
-    pub fn pin2(&self) -> Option<&Coords> {
-        self.data.pin2.as_ref()
-    }
-    pub fn patella(&self) -> Option<&Coords> {
-        self.data.patella.as_ref()
+    pub fn pin2(&self) -> &Coords {
+        &self.data.pin2
     }
 }

@@ -3,17 +3,18 @@ use std::{env, process, fs, ffi};
 mod anatomy;
 mod parse_csv;
 mod frame_of_reference;
-mod live_plot;
+// mod live_plot;
 mod output;
 
 // use change_frame::TryWith;
 use output::*;
-use frame_of_reference::{Inverse, CoordinateSystem, Tibia, Femur, Global, Pin1, Pin2, Patella, ApplyTransform};
+use frame_of_reference::{Inverse, CoordinateSystem, Tibia, Femur, Global, Pin1, Pin2, coordinatesystem_from_landmark};
 use anatomy::{
-    Result, Side, LandmarkSetup, Bone, Position, Landmark
+    Result, Side, LandmarkSetup, Bone, Position
 };
 use csv::Writer;
 use nalgebra::Vector4;
+
 
 fn main() -> Result<()> {
     let no_offset = Vector4::zeros();
@@ -39,32 +40,22 @@ fn main() -> Result<()> {
         landmark.create(Bone::Femur, &[Position::Lateral]),
         landmark.create(Bone::Femur, &[Position::Proximal]),
     ];
-    let patella_landmarks = &[
-        landmark.create(Bone::Patella, &[Position::Medial, Position::Proximal]),
-        landmark.create(Bone::Patella, &[Position::Medial, Position::Distal]),
-        landmark.create(Bone::Patella, &[Position::Lateral, Position::Proximal]),
-        landmark.create(Bone::Patella, &[Position::Lateral, Position::Distal]),
-    ];
-    loaded_landmarks(&[tibia_landmarks, femur_landmarks, patella_landmarks]);
-
 
     // Define bone coordinate systems
-    let cs_tibia: Option<CoordinateSystem<Tibia, Global>> = CoordinateSystem::<Tibia,Global>::from_landmark(tibia_landmarks);
-    let cs_femur = CoordinateSystem::<Femur, Global>::from_landmark(femur_landmarks);
-    let cs_patella = CoordinateSystem::<Patella, Global>::from_landmark(patella_landmarks);
+    let cs_tibia: CoordinateSystem<Tibia, Global> = coordinatesystem_from_landmark::<Tibia>(tibia_landmarks);
+    let cs_femur: CoordinateSystem<Femur, Global> = coordinatesystem_from_landmark::<Femur>(femur_landmarks);
+    // let cs_tibia: CoordinateSystem<Tibia, Global> = CoordinateSystem::<Tibia,Global>::from_landmark(tibia_landmarks);
+    // let cs_femur = CoordinateSystem::<Femur, Global>::from_landmark(femur_landmarks);
 
     // Define tracker coordinate systems
-    let cs_pin1: Option<Vec<CoordinateSystem<Pin1, Global>>> = CoordinateSystem::<Pin1, Global>::tracker::<Pin1>(tibia_landmarks[0].as_ref().and_then(|f| f.pin1()));
-    let cs_pin2 = CoordinateSystem::<Pin2, Global>::tracker::<Pin2>(femur_landmarks[0].as_ref().and_then(|f| f.pin2()));
-    let cs_tracker_patella = CoordinateSystem::<Patella, Global>::tracker::<Patella>(patella_landmarks[0].as_ref().and_then(|f| f.patella()));
+    let cs_pin1: Vec<CoordinateSystem<Pin1, Global>> = CoordinateSystem::<Pin1, Global>::tracker::<Pin1>(tibia_landmarks[0].pin1());
+    let cs_pin2 = CoordinateSystem::<Pin2, Global>::tracker::<Pin2>(femur_landmarks[0].pin2());
 
     // Calculate bone-to-tracker transform
     let tibia_in_pin1 = cs_tibia
-        .and_then(|f| f.change_frame(cs_pin1.inverse().as_ref(), &no_offset));
+        .change_frame(&cs_pin1.inverse(), &no_offset);
     let femur_in_pin2 = cs_femur
-        .and_then(|f| f.change_frame(cs_pin2.inverse().as_ref(), &no_offset));
-    let patella_in_patella_tracker = cs_patella
-        .and_then(|f| f.change_frame(cs_tracker_patella.inverse().as_ref(), &no_offset));
+        .change_frame(&cs_pin2.inverse(), &no_offset);
     
     // let mut tf_angles: Vec<Vector3<f64>> = vec![];
     // let mut tf_translations: Vec<Vector3<f64>> = vec![];
@@ -79,21 +70,17 @@ fn main() -> Result<()> {
         let csv = landmark.raw_csv(&test.to_string_lossy())?;
 
         // Define dynamic tracker positions
-        let global_ti_pin1 = CoordinateSystem::<Pin1, Global>::tracker(csv.content.pin1.as_ref());
-        let global_ti_pin2 = CoordinateSystem::<Pin2, Global>::tracker(csv.content.pin2.as_ref());
-        let global_ti_patella = CoordinateSystem::<Patella, Global>::tracker(csv.content.patella.as_ref());
+        let global_ti_pin1 = CoordinateSystem::<Pin1, Global>::tracker(&csv.content.pin1);
+        let global_ti_pin2 = CoordinateSystem::<Pin2, Global>::tracker(&csv.content.pin2);
 
         //Calculate dynamic bone positions
-        for (i, _) in global_ti_pin1.as_ref().unwrap().iter().enumerate() {
-            let tibia_in_global = global_ti_pin1.as_ref().and_then(|f| tibia_in_pin1.transform(&f[i], &no_offset));
-            let femur_in_global = global_ti_pin2.as_ref().and_then(|f| femur_in_pin2.transform(&f[i], &no_offset));
-            let patella_in_global = global_ti_patella.as_ref().and_then(|f| patella_in_patella_tracker.transform(&f[i], &no_offset));
+        for (i, _) in global_ti_pin1.iter().enumerate() {
+            let tibia_in_global = tibia_in_pin1.transform(&global_ti_pin1[i], &no_offset);
+            let femur_in_global = femur_in_pin2.transform(&global_ti_pin2[i], &no_offset);
 
             // Serialise the output for the csv
-            if let (Some(t), Some(f)) = (tibia_in_global, femur_in_global) {
-                let record = Output::new(&t, &f, &side);
+                let record = Output::new(&tibia_in_global, &femur_in_global, &side);
                 wtr.serialize(&record)?;
-            }
 
             // tf_angles.push(tf_ang);
             // tf_translations.push(tf_transl);
@@ -127,12 +114,4 @@ fn get_args() -> (String, Side) {
         }
     };
     (folder, side)
-}
-
-fn loaded_landmarks(arr: &[&[Option<Landmark>]]) {
-    for c in arr {
-        if let Some(v) = c[0].as_ref() {
-            println!("Loaded: {:#?}", v.bone);
-        } 
-    }
 }

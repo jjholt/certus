@@ -50,10 +50,9 @@ pub struct DatumCoords {
 
 #[derive(Debug)]
 pub struct Structure {
-    pub probe: Option<Coords>,
-    pub patella: Option<Coords>,
-    pub pin1: Option<Coords>,
-    pub pin2: Option<Coords>,
+    pub probe: Coords,
+    pub pin1: Coords,
+    pub pin2: Coords,
 }
 
 #[derive(Debug, Default)]
@@ -137,9 +136,8 @@ impl Csv {
         let probe = Coords::new(&temp, |f| f.probe);
         let pin1 = Coords::new(&temp, |f| f.pin1);
         let pin2 = Coords::new(&temp, |f| f.pin2);
-        let patella = Coords::new(&temp, |f| f.patella);
 
-        Structure { probe: Some(probe), pin1: Some(pin1), pin2: Some(pin2), patella: Some(patella)}
+        Structure { probe, pin1, pin2 }
     }
 }
 
