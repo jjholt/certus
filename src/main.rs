@@ -10,7 +10,7 @@ mod output;
 use output::*;
 use frame_of_reference::{Inverse, CoordinateSystem, Tibia, Femur, Global, Pin1, Pin2, Patella, ApplyTransform};
 use anatomy::{
-    Result, Side, LandmarkSetup, Bone, Position, Landmark
+    Result, Side, Bone, Position, Landmark
 };
 use csv::Writer;
 use nalgebra::Vector4;
@@ -19,13 +19,9 @@ fn main() -> Result<()> {
     let no_offset = Vector4::zeros();
     let (folder, side) = get_args();
     // let tests = ["FE1", "FE2"];
-    let tests: Vec<ffi::OsString> = fs::read_dir(&folder).unwrap()
-        .map(|f| f.unwrap().path())
-        .map(|f| f.file_name().unwrap().to_owned())
-        .filter(|f| f.to_string_lossy().contains("FE"))
-        .collect();
+    let tests = get_test_files(&folder)?;
 
-    let landmark = LandmarkSetup::new(&folder, &tests, &side);
+    let landmark = Landmark::new(&folder, &tests, &side);
 
     // Import digitisation data
     let tibia_landmarks = &[
@@ -46,7 +42,6 @@ fn main() -> Result<()> {
         landmark.create(Bone::Patella, &[Position::Lateral, Position::Distal]),
     ];
     loaded_landmarks(&[tibia_landmarks, femur_landmarks, patella_landmarks]);
-
 
     // Define bone coordinate systems
     let cs_tibia: Option<CoordinateSystem<Tibia, Global>> = CoordinateSystem::<Tibia,Global>::from_landmark(tibia_landmarks);
@@ -108,7 +103,7 @@ fn get_args() -> (String, Side) {
     let mut args = env::args();
     args.next(); // Program name
     let folder = args.next().unwrap_or_else(|| {
-        eprintln!("No folder provided"); process::exit(1)
+        eprintln!("No root folder provided"); process::exit(1)
     });
     let side = match args.next() {
         Some(arg) => {
@@ -135,4 +130,14 @@ fn loaded_landmarks(arr: &[&[Option<Landmark>]]) {
             println!("Loaded: {:#?}", v.bone);
         } 
     }
+}
+
+fn get_test_files(root: &str) -> Result<Vec<ffi::OsString>> {
+    let result = fs::read_dir(root)?
+        .map(|f| f.unwrap().path())
+        .map(|f| f.file_name().unwrap().to_owned())
+        .filter(|f| f.to_string_lossy().contains("FE"))
+        .collect();
+
+    Ok(result)
 }

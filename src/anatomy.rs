@@ -86,13 +86,6 @@ impl fmt::Display for Position {
 
 #[allow(dead_code)]
 impl <'a> LandmarkSetup <'a>{
-    pub fn new(folder: &'a str, tests: &'a[ffi::OsString], side: &'a Side) -> Self {
-        Self {
-            folder,
-            tests,
-            side,
-        }
-    }
     pub fn create(&'a self, bone: Bone, position: &'a [Position]) -> Option<Landmark> {
         let position_names: String = position.iter().map(|p| p.filename().to_string()).collect();
         let filename = format!("{}/{}{}.csv", self.folder, bone.filename(), position_names);
@@ -123,5 +116,12 @@ impl <'a> Landmark<'a> {
     }
     pub fn patella(&self) -> Option<&Coords> {
         self.data.patella.as_ref()
+    }
+    pub fn new(folder: &'a str, tests: &'a[ffi::OsString], side: &'a Side) -> LandmarkSetup<'a> {
+        LandmarkSetup {
+            folder,
+            tests,
+            side,
+        }
     }
 }
