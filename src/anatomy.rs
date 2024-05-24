@@ -121,4 +121,11 @@ impl <'a> Landmark<'a> {
     pub fn pin2(&self) -> &Coords {
         &self.data.pin2
     }
+    pub fn new(folder: &'a str, tests: &'a[ffi::OsString], side: &'a Side) -> LandmarkSetup<'a> {
+        LandmarkSetup {
+            folder,
+            tests,
+            side,
+        }
+    }
 }
